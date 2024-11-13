@@ -12,6 +12,7 @@ type Config struct {
 	GeminiModelConfig GeminiModelConfig
 	OpenaiModelConfig OpenaiModelConfig
 	Prompt            string
+	Proxy             string
 }
 
 // GeminiModelConfig holds the configuration for the Gemini AI model.
@@ -21,6 +22,7 @@ type GeminiModelConfig struct {
 	TopP                  float32 // TopP for controlling randomness
 	MaxTokens             int32   // Max number of tokens to generate
 	TopK                  int32   // TopK for controlling the diversity
+	Timeout               int     // Timeout for requests to the OpenAI server
 	MaxConcurrentRequests int64
 }
 
@@ -54,6 +56,7 @@ func NewConfig() *Config {
 			TopP:                  0.5,
 			MaxTokens:             8192,
 			TopK:                  20,
+			Timeout:               30,
 			MaxConcurrentRequests: 4,
 		},
 		OpenaiAPIKey: LoadConfigValue("OPENAI_API_KEY"),
@@ -66,5 +69,6 @@ func NewConfig() *Config {
 			Endpoint:    LoadConfigValue("OPENAI_API_BASE"), // Default OpenAI endpoint
 		},
 		Prompt: Prompt2,
+		Proxy:  "http://127.0.0.1:7890",
 	}
 }

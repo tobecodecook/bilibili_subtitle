@@ -7,6 +7,9 @@ import (
 	"github.com/google/generative-ai-go/genai"
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/api/option"
+	"log"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -17,11 +20,52 @@ type GeminiClient struct {
 	sem      *semaphore.Weighted // 用于并发控制
 }
 
-func NewGeminiClient(cfg *config.Config) (*GeminiClient, error) {
-	ctx := context.Background()
-	client, err := genai.NewClient(ctx, option.WithAPIKey(cfg.GeminiAPIKey))
+// ProxyRoundTripper is an implementation of http.RoundTripper that supports
+// setting a proxy server URL for genai clients. This type should be used with
+// a custom http.Client that's passed to WithHTTPClient. For such clients,
+// WithAPIKey doesn't apply so the key has to be explicitly set here.
+type ProxyRoundTripper struct {
+	// APIKey is the API Key to set on requests.
+	APIKey string
+
+	// ProxyURL is the URL of the proxy server. If empty, no proxy is used.
+	ProxyURL string
+}
+
+func (t *ProxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+
+	if t.ProxyURL != "" {
+		proxyURL, err := url.Parse(t.ProxyURL)
+		if err != nil {
+			return nil, err
+		}
+		transport.Proxy = http.ProxyURL(proxyURL)
+	}
+
+	newReq := req.Clone(req.Context())
+	vals := newReq.URL.Query()
+	vals.Set("key", t.APIKey)
+	newReq.URL.RawQuery = vals.Encode()
+
+	resp, err := transport.RoundTrip(newReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Gemini AI client: %w", err)
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func NewGeminiClient(cfg *config.Config) (*GeminiClient, error) {
+	c := &http.Client{Transport: &ProxyRoundTripper{
+		APIKey:   cfg.GeminiAPIKey,
+		ProxyURL: cfg.Proxy,
+	}}
+
+	ctx := context.Background()
+	client, err := genai.NewClient(ctx, option.WithHTTPClient(c))
+	if err != nil {
+		log.Fatal(err)
 	}
 	sem := semaphore.NewWeighted(cfg.GeminiModelConfig.MaxConcurrentRequests) // 设置最大并发请求数
 	return &GeminiClient{
