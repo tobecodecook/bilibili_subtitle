@@ -49,7 +49,7 @@ func NewConfig() *Config {
 	//Prompt1 := "The following is the content of the subtitles. Speaking intervals are separated by commas, please provide a comprehensive analysis in Chinese:"
 	Prompt2 := "Here is a transcript of video subtitles, with speaking intervals separated by commas. Please conduct a thorough analysis of the themes, content, and any cultural nuances present in these subtitles. Summarize the key points and provide insights into the dialogue dynamics. All analysis and summary should be presented clearly in Chinese."
 	return &Config{
-		GeminiAPIKey: LoadConfigValue("gemini_api"),
+		GeminiAPIKey: LoadConfigValue("GEMINI_API_KEY"),
 		GeminiModelConfig: GeminiModelConfig{
 			ModelName:             "gemini-1.5-pro-latest",
 			Temperature:           0.9,
@@ -69,6 +69,6 @@ func NewConfig() *Config {
 			Endpoint:    LoadConfigValue("OPENAI_API_BASE"), // Default OpenAI endpoint
 		},
 		Prompt: Prompt2,
-		Proxy:  "http://127.0.0.1:7890",
+		Proxy:  LoadConfigValue("HTTP_PROXY"),
 	}
 }

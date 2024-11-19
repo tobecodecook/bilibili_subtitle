@@ -30,8 +30,14 @@ type Subtitle struct {
 var prompt1 = "The following is the content of the video subtitles. Speaking intervals are separated by commas,Please provide a comprehensive analysis of the specified content in Chinese:"
 
 func main() {
-	os.Setenv("HTTP_PROXY", os.Getenv("HTTP_PROXY"))
-	os.Setenv("HTTPS_PROXY", os.Getenv("HTTPS_PROXY"))
+	err := os.Setenv("HTTP_PROXY", os.Getenv("HTTP_PROXY"))
+	if err != nil {
+		return
+	}
+	err = os.Setenv("HTTPS_PROXY", os.Getenv("HTTPS_PROXY"))
+	if err != nil {
+		return
+	}
 	// 打开文件选择对话框
 	filePath, err := dialog.File().Filter("JSON,SRT and txt files", "json", "srt", "txt").Load()
 	if err != nil {
@@ -79,11 +85,21 @@ func printResponse(combinedText string, resp *genai.GenerateContentResponse, new
 	if err != nil {
 		return fmt.Errorf("error opening file: %w", err)
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}(file)
 
 	// Write the entire response to the file using a buffered writer for performance
 	writer := bufio.NewWriter(file)
-	defer writer.Flush()
+	defer func(writer *bufio.Writer) {
+		err := writer.Flush()
+		if err != nil {
+			log.Printf("Error flushing file: %v", err)
+		}
+	}(writer)
 
 	_, err = writer.WriteString("## 原始文本：\n\n")
 	if err != nil {
@@ -131,7 +147,7 @@ func combineJsonSubtitles(data Subtitle) string {
 
 func summarizeText(text string, newFilePath string) {
 	ctx := context.Background()
-	client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("gemini_api")))
+	client, err := genai.NewClient(ctx, option.WithAPIKey(os.Getenv("GEMINI_API_KEY")))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -191,7 +207,12 @@ func handleSRT(filePath, fileName string, combinedText *string) (string, error) 
 	if err != nil {
 		return "", fmt.Errorf("error opening file: %w", err)
 	}
-	defer fileData.Close()
+	defer func(fileData *os.File) {
+		err := fileData.Close()
+		if err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}(fileData)
 
 	scanner := bufio.NewScanner(fileData)
 	var paragraph strings.Builder
